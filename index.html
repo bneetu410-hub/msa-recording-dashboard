@@ -112,8 +112,13 @@
   }
 
   window.addEventListener("message", function(event) {
-    if (event.source !== frame.contentWindow || !event.data) return;
+  if (!event.data) return;
 
+const trustedOrigin =
+  event.origin === "https://script.google.com" ||
+  new URL(event.origin).hostname.endsWith(".googleusercontent.com");
+
+if (!trustedOrigin) return;
     if (event.data.type === "MSA_BRIDGE_READY") {
       bridgeReady = true;
       while (queue.length) transmit(queue.shift());
