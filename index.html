@@ -19,7 +19,7 @@
 <script>
 const $=id=>document.getElementById(id);
 if(!window.supabase||!window.supabase.createClient){window.__msaDbError="Supabase library did not load."; }
-const PROJECT_URL="https://thugutozrnzambpnucgy.supabase.co",KEY="sb_publishable_4psdstAy9VLFYuV8At1q-g_k57JCaY",db=window.supabase?.createClient?window.supabase.createClient(PROJECT_URL,KEY):null,BUCKET="msa-recordings",MAX=50*1024*1024;
+const PROJECT_URL="https://thugutozrnzambpnucgy.supabase.co",KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRodWd1dG96cm56YW1icG51Y2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzOTA1MjMsImV4cCI6MjEwOTk2NjUyM30.T80u_Lj6zea3N0Rdi11kOXww68iU2A39IwGgWJ2jcEw",db=window.supabase?.createClient?window.supabase.createClient(PROJECT_URL,KEY):null,BUCKET="msa-recordings",MAX=50*1024*1024;
 let user=null,profile=null,recorder=null,blob=null,started=0,duration=0,tick=null;
 function say(id,s,bad=false){$(id).textContent=s;$(id).style.color=bad?"#b33":"#176d4b"}function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}function date(s){return new Date(s).toLocaleString()}function clock(n){return String(Math.floor(n/60)).padStart(2,"0")+":"+String(Math.floor(n%60)).padStart(2,"0")}
 async function getProfile(u){let {data,error}=await db.from("profiles").select("*").eq("id",u.id).single();if(error)throw error;return data}
