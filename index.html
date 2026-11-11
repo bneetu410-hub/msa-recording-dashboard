@@ -1,1 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MSA Recording Dashboard</title>
+  <style>
+    :root {
+      --ink:#142b4d; --muted:#64748b; --line:#e3eaf4;
+      --bg:#f3f7fd; --brand:#174b8f; --brand-dark:#103568;
+      --gold:#c9a45c; --gold-light:#fbf5e8;
+      --green:#16845b; --red:#b42318;
+      --shadow:0 10px 28px rgba(20,43,77,.08);
+    }
+    * {box-sizing:border-box}
+    body {
+      margin:0;font-family:Arial,sans-serif;
+      background:linear-gradient(135deg,#f4f8ff,#edf3fb 55%,#fbf8f1);
+      color:var(--ink)
+    }
+    .wrap {max-width:1240px;margin:auto;padding:28px 22px 42px}
+    .top {
+      display:flex;justify-content:space-between;align-items:center;gap:16px;
+      margin:-28px -22px 26px;padding:25px 30px;color:#fff;
+      background:linear-gradient(120deg,#103568,#174b8f 62%,#2864a8);
+      border-bottom:4px solid var(--gold);
+      box-shadow:0 8px 24px rgba(16,53,104,.18)
+    }
+    .top h1 {font-size:26px;margin:0 0 6px;color:#fff}
+    .sub {color:var(--muted);font-size:13px}
+    .top .sub {color:#dce8f8}
+    #userBadge {color:#fff;background:#ffffff20;border:1px solid #ffffff38;border-radius:30px;padding:9px 14px}
+    .card {
+      background:#fff;border:1px solid var(--line);border-radius:17px;
+      padding:21px;margin-bottom:17px;box-shadow:var(--shadow)
+    }
+    h2,h3 {color:var(--brand-dark)}
+    h2 {font-size:21px} h3 {font-size:17px}
+    #loginView {border-top:4px solid var(--gold)}
+    .grid {display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .grid .card {border-top:3px solid var(--gold)}
+    .metric {font-size:30px;font-weight:750;margin-top:9px;color:var(--brand)}
+    .label {font-size:12px;color:var(--muted);font-weight:650;text-transform:uppercase}
+    input,select,textarea {
+      width:100%;padding:12px 13px;border:1px solid #cbd7e7;
+      border-radius:10px;font-size:14px;margin:7px 0 14px;
+      background:#fff;color:var(--ink)
+    }
+    input:focus,select:focus,textarea:focus {
+      border-color:#3976bd;outline:none;box-shadow:0 0 0 3px #3976bd22
+    }
+    label {display:block;color:#29496f;font-size:13px;font-weight:650;margin-top:4px}
+    button {
+      border:0;border-radius:10px;padding:12px 17px;
+      background:linear-gradient(135deg,#174b8f,#2363a5);
+      color:white;font-weight:700;cursor:pointer
+    }
+    button:hover:not(:disabled) {filter:brightness(1.08)}
+    button.secondary {background:var(--gold-light);color:#775719;border:1px solid #ead9b5}
+    button.danger {background:#b42318}
+    button:disabled {opacity:.5;cursor:not-allowed}
+    .row {display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .row>* {flex:1}
+    .hidden {display:none!important}
+    table {width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+    th,td {text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+    th {color:#36577e;background:#f1f5fb}
+    tbody tr:hover {background:#f8fbff}
+    .pill {display:inline-block;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:700;background:#fbf5e8;color:#8a641e}
+    .pill.Approved {background:#e7f7ef;color:#087443}
+    .pill.Rejected {background:#feeceb;color:#b42318}
+    .notice {padding:12px 14px;border-radius:10px;background:#edf4ff;color:#234477;font-size:13px;margin:12px 0;border-left:3px solid #4e83c1}
+    .error {background:#fff0ef;color:#a1261c;border-left-color:#d92d20}
+    .success {background:#eaf8f0;color:#12633f;border-left-color:#16845b}
+    .langrow {display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:9px;padding:12px 8px;border-bottom:1px solid var(--line);font-size:13px;align-items:center}
+    .bar {height:8px;background:#e9eff7;border-radius:99px;overflow:hidden;margin-top:7px}
+    .bar>span {display:block;height:100%;background:linear-gradient(90deg,#174b8f,#c9a45c);border-radius:99px}
+    a {color:#17569b;font-weight:650;text-decoration:none}
+    @media(max-width:760px) {
+      .grid {grid-template-columns:repeat(2,1fr)}
+      .wrap {padding:18px 13px 30px}
+      .top {margin:-18px -13px 20px;padding:20px 16px;align-items:flex-start;flex-direction:column}
+      .top h1 {font-size:22px}
+      .langrow {grid-template-columns:1fr 1fr}
+      table {min-width:760px}
+      .tablewrap {overflow:auto}
+      .card {padding:16px}
+    }
+  </style>
+</head>
+<body>
 
+<iframe id="msaBridgeFrame" title="MSA backend connection"
+ style="position:absolute;width:1px;height:1px;left:-20px;top:-20px;border:0"></iframe>
+
+<script>
+(function () {
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyOm7ddMXtBLL92adjlogFewGqiq_5VOZGW50tHy3gX-rwcd6jwT2YP8D0P-RWDkE7w/exec?bridge=1";
+  const ALLOWED = new Set([
+    "login","getDashboard","submitRecording",
+    "getWorkerHistory","updateSubmissionBySerial"
+  ]);
+  const frame = document.getElementById("msaBridgeFrame");
+  const pending = new Map();
+  let bridgeReady = false;
+  const queue = [];
+  let nextId = 0;
+
+  function transmit(message) {
+    if (!bridgeReady) { queue.push(message); return; }
+    frame.contentWindow.postMessage(message, "*");
+  }
+
+  window.addEventListener("message", function(event) {
+    if (event.source !== frame.contentWindow || !event.data) return;
+
+    if (event.data.type === "MSA_BRIDGE_READY") {
+      bridgeReady = true;
+      while (queue.length) transmit(queue.shift());
+      return;
+    }
+
+    if (event.data.type !== "MSA_RESULT") return;
+    const item = pending.get(event.data.id);
+    if (!item) return;
+
+    clearTimeout(item.timer);
+    pending.delete(event.data.id);
+
+    if (event.data.success) {
+      if (item.success) item.success(event.data.result);
+    } else if (item.failure) {
+      item.failure({message:event.data.error || "Backend request failed."});
+    }
+  });
+
+  frame.src = BACKEND_URL;
+
+  function makeRunner(success, failure) {
+    return new Proxy({}, {
+      get: function(_target, property) {
+        if (property === "withSuccessHandler")
+          return fn => makeRunner(fn, failure);
+        if (property === "withFailureHandler")
+          return fn => makeRunner(success, fn);
+        if (typeof property !== "string" || !ALLOWED.has(property))
+          return undefined;
+
+        return function() {
+          const args = Array.from(arguments);
+          const id = "msa_" + (++nextId) + "_" + Date.now();
+
+          const timer = setTimeout(function() {
+            if (!pending.has(id)) return;
+            pending.delete(id);
+            if (failure) failure({message:"Backend response timed out. Please refresh and try again."});
+          }, 90000);
+
+          pending.set(id,{success,failure,timer});
+          transmit({type:"MSA_CALL",id,method:property,args});
+        };
+      }
+    });
+  }
+
+  window.google = window.google || {};
+  window.google.script = window.google.script || {};
+  window.google.script.run = makeRunner(null,null);
+})();
+</script>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>MSA Recording Dashboard</h1>
+      <div class="sub">Multisolution Agency · Recording Operations</div>
+    </div>
+    <div id="userBadge" class="sub"></div>
+  </div>
+
+  <section id="loginView" class="card" style="max-width:460px;margin:6vh auto">
+    <h2 style="margin-top:0">Welcome</h2>
+    <div class="sub">Sign in as an administrator or worker.</div>
+
+    <label>Login type</label>
+    <select id="role">
+      <option value="worker">Worker</option>
+      <option value="admin">Admin</option>
+    </select>
+
+    <div id="workerFields">
+      <label>Worker ID</label>
+      <input id="workerId" placeholder="e.g. MSA001">
+    </div>
+
+    <label>PIN</label>
+    <input id="pin" type="password" placeholder="Enter your PIN">
+
+    <button onclick="doLogin()">Sign in</button>
+    <div id="loginMsg"></div>
+    <div class="notice">Workers: use the Worker ID and PIN provided by your MSA coordinator.</div>
+  </section>
+
+  <section id="adminView" class="hidden">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div>
+        <h2 style="margin:0">Overview</h2>
+        <div class="sub">Live totals from the submissions sheet</div>
+      </div>
+      <button class="secondary" onclick="refreshDashboard()">Refresh</button>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="label">Total submissions</div><div class="metric" id="total">0</div></div>
+      <div class="card"><div class="label">Pending review</div><div class="metric" id="pending">0</div></div>
+      <div class="card"><div class="label">Approved</div><div class="metric" id="approved">0</div></div>
+      <div class="card"><div class="label">Rejected</div><div class="metric" id="rejected">0</div></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Language-wise progress</h3>
+      <div class="langrow" style="font-weight:bold;color:#667085">
+        <div>Language</div><div>Target</div><div>Submitted</div><div>Approved</div><div>Pending</div>
+      </div>
+      <div id="languageStats"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Recent submissions & quality review</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Time</th><th>Language</th><th>Serial</th>
+            <th>Worker</th><th>File</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody id="recentRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Admin setup notes</h3>
+      <div class="sub">
+        Add or deactivate workers in the Workers tab of the linked Google Sheet.
+        Set language targets in LanguageTargets. Review audio files from the Drive folder.
+      </div>
+    </div>
+  </section>
+
+  <section id="workerView" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Submit a recording</h2>
+      <div class="sub">Record in your browser or upload an existing audio file.</div>
+
+      <label>Project language</label>
+      <select id="language">
+        <option>Bengali</option><option>Tamil</option>
+        <option>Telugu</option><option>Malayalam</option><option>Hindi</option>
+      </select>
+
+      <div class="row">
+        <button onclick="startRecording()" id="recordBtn">Start recording</button>
+        <button class="danger" onclick="stopRecording()" id="stopBtn" disabled>Stop recording</button>
+      </div>
+
+      <div id="recordState" class="notice">
+        Microphone permission is required for browser recording. Use HTTPS for recording.
+      </div>
+
+      <audio id="preview" controls class="hidden" style="width:100%;margin:12px 0"></audio>
+
+      <label>Or upload an audio file</label>
+      <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm">
+
+      <button onclick="submitAudio()" id="submitBtn">Submit recording</button>
+      <div id="workerMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">My recent submissions</h3>
+      <div id="history" class="sub">No submissions yet.</div>
+    </div>
+  </section>
+
+  <div style="text-align:right">
+    <button class="secondary hidden" id="logoutBtn" onclick="logout()">Log out</button>
+  </div>
+</div>
+
+<script>
+let session = null;
+let mediaRecorder = null;
+let chunks = [];
+let recordedBlob = null;
+let recordingStart = 0;
+let duration = 0;
+const $ = id => document.getElementById(id);
+
+$('role').addEventListener('change', () => {
+  $('workerFields').classList.toggle('hidden',$('role').value === 'admin');
+});
+
+function msg(id,text,kind) {
+  const el = $(id);
+  el.className = 'notice ' + (kind || '');
+  el.textContent = text;
+}
+
+function doLogin() {
+  const role = $('role').value;
+  const payload = {
+    role:role,
+    pin:$('pin').value,
+    workerId:$('workerId').value.trim()
+  };
+
+  msg('loginMsg','Signing in…');
+
+  google.script.run
+    .withSuccessHandler(user => {
+      session = {...payload,...user};
+      $('loginView').classList.add('hidden');
+      $('logoutBtn').classList.remove('hidden');
+      $('userBadge').textContent = user.name + ' · ' + user.role;
+
+      if (role === 'admin') {
+        $('adminView').classList.remove('hidden');
+        refreshDashboard();
+      } else {
+        $('workerView').classList.remove('hidden');
+        loadHistory();
+      }
+    })
+    .withFailureHandler(e => msg('loginMsg',e.message || String(e),'error'))
+    .login(payload);
+}
+
+function logout() {
+  session = null;
+  location.reload();
+}
+
+function refreshDashboard() {
+  google.script.run
+    .withSuccessHandler(renderDashboard)
+    .withFailureHandler(e => alert(e.message || e))
+    .getDashboard(session);
+}
+
+function renderDashboard(d) {
+  $('total').textContent = d.total;
+  $('pending').textContent = d.pending;
+  $('approved').textContent = d.approved;
+  $('rejected').textContent = d.rejected;
+
+  $('languageStats').innerHTML = Object.entries(d.stats || {}).map(([lang,s]) => {
+    const pct = s.target ? Math.min(100,Math.round(s.submitted/s.target*100)) : 0;
+    return `
+      <div class="langrow">
+        <div><b>${esc(lang)}</b><div class="bar"><span style="width:${pct}%"></span></div></div>
+        <div>${s.target || '—'}</div><div>${s.submitted}</div>
+        <div>${s.approved}</div><div>${s.pending}</div>
+      </div>`;
+  }).join('');
+
+  const recent = d.recent || [];
+  $('recentRows').innerHTML = recent.map(r => `
+    <tr>
+      <td>${new Date(r.timestamp).toLocaleString()}</td>
+      <td>${esc(r.language)}</td><td><b>${esc(r.serial)}</b></td>
+      <td>${esc(r.workerName)}<br><small>${esc(r.workerId)}</small></td>
+      <td><a href="${esc(r.fileUrl)}" target="_blank">${esc(r.fileName)}</a></td>
+      <td><span class="pill ${esc(r.status)}">${esc(r.status)}</span></td>
+      <td>
+        <select id="st${rowKey(r)}">
+          <option ${r.status==='Pending'?'selected':''}>Pending</option>
+          <option ${r.status==='Approved'?'selected':''}>Approved</option>
+          <option ${r.status==='Rejected'?'selected':''}>Rejected</option>
+        </select>
+        <input id="nt${rowKey(r)}" placeholder="Admin note" value="${esc(r.notes)}">
+        <button onclick="saveStatus('${rowKey(r)}')">Save</button>
+      </td>
+    </tr>`).join('');
+
+  window.rowMap = {};
+  recent.forEach(r => window.rowMap[rowKey(r)] = r);
+}
+
+function rowKey(r) {
+  return String(r.serial).replace(/[^A-Za-z0-9]/g,'');
+}
+
+function saveStatus(key) {
+  const r = window.rowMap[key];
+  google.script.run
+    .withSuccessHandler(() => refreshDashboard())
+    .withFailureHandler(e => alert(e.message || e))
+    .updateSubmissionBySerial({
+      ...session,
+      serial:r.serial,
+      status:$('st'+key).value,
+      notes:$('nt'+key).value
+    });
+}
+
+function startRecording() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    msg('recordState','Browser recording is not supported here. Please upload an audio file.','error');
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({audio:true})
+    .then(stream => {
+      chunks = [];
+      recordedBlob = null;
+      duration = 0;
+
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus' : 'audio/webm';
+
+      mediaRecorder = new MediaRecorder(stream,{mimeType:mime});
+      mediaRecorder.ondataavailable = e => {if(e.data.size) chunks.push(e.data);};
+
+      mediaRecorder.onstop = () => {
+        recordedBlob = new Blob(chunks,{type:mediaRecorder.mimeType});
+        $('preview').src = URL.createObjectURL(recordedBlob);
+        $('preview').classList.remove('hidden');
+        stream.getTracks().forEach(t => t.stop());
+        msg('recordState','Recording ready. Preview it, then submit.','success');
+      };
+
+      mediaRecorder.start();
+      recordingStart = Date.now();
+      $('recordBtn').disabled = true;
+      $('stopBtn').disabled = false;
+      msg('recordState','Recording…');
+    })
+    .catch(e => msg('recordState','Microphone access failed: '+e.message,'error'));
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    duration = Math.round((Date.now()-recordingStart)/1000);
+    mediaRecorder.stop();
+    $('recordBtn').disabled = false;
+    $('stopBtn').disabled = true;
+  }
+}
+
+function submitAudio() {
+  const file = $('audioFile').files[0];
+  let blob = recordedBlob;
+  let name = 'browser-recording.webm';
+
+  if (file) {blob = file;name = file.name;}
+
+  if (!blob) {
+    msg('workerMsg','Please record audio or choose a file first.','error');
+    return;
+  }
+
+  if (blob.size > 20*1024*1024) {
+    msg('workerMsg','Maximum file size is 20 MB.','error');
+    return;
+  }
+
+  $('submitBtn').disabled = true;
+  msg('workerMsg','Uploading to MSA Drive folder…');
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    google.script.run
+      .withSuccessHandler(res => {
+        $('submitBtn').disabled = false;
+        recordedBlob = null;
+        $('audioFile').value = '';
+        $('preview').classList.add('hidden');
+        msg('workerMsg','Submitted successfully. Your serial number is '+res.serial+'. Status: Pending.','success');
+        loadHistory();
+      })
+      .withFailureHandler(e => {
+        $('submitBtn').disabled = false;
+        msg('workerMsg',e.message || String(e),'error');
+      })
+      .submitRecording({
+        workerId:session.workerId,
+        pin:session.pin,
+        language:$('language').value,
+        dataUrl:reader.result,
+        fileName:name,
+        durationSeconds:duration
+      });
+  };
+
+  reader.onerror = () => {
+    $('submitBtn').disabled = false;
+    msg('workerMsg','Could not read this file.','error');
+  };
+
+  reader.readAsDataURL(blob);
+}
+
+function loadHistory() {
+  google.script.run
+    .withSuccessHandler(rows => {
+      $('history').innerHTML = rows.length
+        ? '<div class="tablewrap"><table><tr><th>Serial</th><th>Language</th><th>Date</th><th>Status</th></tr>' +
+          rows.map(r => `
+            <tr>
+              <td>${esc(r.serial)}</td><td>${esc(r.language)}</td>
+              <td>${new Date(r.timestamp).toLocaleString()}</td>
+              <td><span class="pill ${esc(r.status)}">${esc(r.status)}</span></td>
+            </tr>`).join('') + '</table></div>'
+        : 'No submissions yet.';
+    })
+    .withFailureHandler(e => msg('history',e.message || String(e),'error'))
+    .getWorkerHistory(session);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+</script>
+</body>
+</html>
